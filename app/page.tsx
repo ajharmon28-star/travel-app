@@ -4,10 +4,20 @@ import { useState } from "react"
 
 const tripTypes = ["Beach", "City breaks", "Adventure", "Culture", "Road trips", "Nature"]
 
+type Trip = {
+  destination: string
+  days: number
+  month: string
+  reason: string
+  emoji: string
+}
+
 export default function Home() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [vacationDays, setVacationDays] = useState("")
   const [tripCount, setTripCount] = useState("")
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const toggleTag = (tag: string) => {
@@ -18,48 +28,82 @@ export default function Home() {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!vacationDays || !tripCount) return
-    setSubmitted(true)
+    setLoading(true)
+
+    try {
+      const response = await fetch("/api/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vacationDays,
+          tripCount,
+          interests: selectedTags
+        })
+      })
+
+      const data = await response.json()
+      setTrips(data.trips)
+      setSubmitted(true)
+    } catch (error) {
+      console.error("Error fetching trips:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-8 text-center">
+          <div className="text-5xl mb-4">✈️</div>
+          <h2 className="text-xl font-medium text-amber-900 mb-2">Planning your year...</h2>
+          <p className="text-amber-600">Finding the perfect trips for you</p>
+        </div>
+      </main>
+    )
   }
 
   if (submitted) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-8">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <div className="bg-amber-400 rounded-xl p-2">
               <span className="text-white text-xl">✈️</span>
             </div>
             <span className="text-xl font-medium text-amber-800">Travel App</span>
           </div>
 
-          <h1 className="text-2xl font-medium text-amber-900 mb-6">
-            Your travel plan
+          <h1 className="text-2xl font-medium text-amber-900 mb-2">
+            Your {tripCount} trips for the year
           </h1>
+          <p className="text-amber-600 mb-6">{vacationDays} vacation days, perfectly planned</p>
 
           <div className="space-y-4 mb-8">
-            <div className="bg-amber-50 rounded-lg p-4">
-              <p className="text-sm text-amber-600">Vacation days</p>
-              <p className="text-2xl font-medium text-amber-900">{vacationDays} days</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-4">
-              <p className="text-sm text-amber-600">Number of trips</p>
-              <p className="text-2xl font-medium text-amber-900">{tripCount} trips</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-4">
-              <p className="text-sm text-amber-600">Interests</p>
-              <p className="text-lg font-medium text-amber-900">
-                {selectedTags.length > 0 ? selectedTags.join(", ") : "None selected"}
-              </p>
-            </div>
+            {trips.map((trip, index) => (
+              <div key={index} className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl">{trip.emoji}</span>
+                  <div>
+                    <p className="font-medium text-amber-900">{trip.destination}</p>
+                    <p className="text-sm text-amber-600">{trip.month} · {trip.days} days</p>
+                  </div>
+                </div>
+                <p className="text-sm text-amber-700">{trip.reason}</p>
+              </div>
+            ))}
           </div>
 
           <button
-            onClick={() => setSubmitted(false)}
+            onClick={() => {
+              setSubmitted(false)
+              setTrips([])
+            }}
             className="w-full bg-amber-400 hover:bg-amber-500 text-white font-medium py-3 rounded-lg transition-colors"
           >
-            ← Start over
+            ← Plan again
           </button>
         </div>
       </main>
