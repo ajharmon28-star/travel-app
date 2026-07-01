@@ -14,6 +14,8 @@ type Trip = {
   useHomebase: boolean
   preferences: string[]
   transport: string
+  tripStyle: "single" | "multi"
+  stops: string
 }
 
 export default function Home() {
@@ -56,7 +58,9 @@ export default function Home() {
       travelFrom: homebase,
       useHomebase: true,
       preferences: [],
-      transport: "any"
+      transport: "any",
+      tripStyle: "single" as "single" | "multi",
+      stops: "2"
     }))
     setTrips(newTrips)
     setStarted(true)
@@ -74,6 +78,13 @@ export default function Home() {
       ? trip.preferences.filter((p) => p !== pref)
       : [...trip.preferences, pref]
     updateTrip(tripIndex, "preferences", updated)
+  }
+
+  const getTripDuration = (startDate: string, endDate: string): number => {
+    if (!startDate || !endDate) return 0
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
   }
 
   const tabColors = [
@@ -226,6 +237,75 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Trip duration summary */}
+              {trip.startDate && trip.endDate && (
+                <div className="bg-amber-50 rounded-lg px-4 py-3 text-sm text-amber-700">
+                  {getTripDuration(trip.startDate, trip.endDate) <= 0
+                    ? "⚠️ End date must be after start date"
+                    : `📅 ${getTripDuration(trip.startDate, trip.endDate)} days`
+                  }
+                </div>
+              )}
+
+              {/* Multi-city option — only shows for 4+ day trips */}
+              {getTripDuration(trip.startDate, trip.endDate) >= 4 && (
+                <div>
+                  <label className="block text-sm font-medium text-amber-700 mb-2">
+                    How do you want to structure this trip?
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => updateTrip(activeTab, "tripStyle", "single")}
+                      className={`py-3 px-4 rounded-lg text-sm font-medium border transition-colors text-left ${
+                        trip.tripStyle === "single"
+                          ? "bg-amber-400 border-amber-400 text-white"
+                          : "border-amber-200 text-amber-700 hover:border-amber-400 hover:bg-amber-50"
+                      }`}
+                    >
+                      <div className="text-lg mb-1">📍</div>
+                      <div>Single destination</div>
+                      <div className="text-xs opacity-70 mt-0.5">Stay in one place</div>
+                    </button>
+                    <button
+                      onClick={() => updateTrip(activeTab, "tripStyle", "multi")}
+                      className={`py-3 px-4 rounded-lg text-sm font-medium border transition-colors text-left ${
+                        trip.tripStyle === "multi"
+                          ? "bg-amber-400 border-amber-400 text-white"
+                          : "border-amber-200 text-amber-700 hover:border-amber-400 hover:bg-amber-50"
+                      }`}
+                    >
+                      <div className="text-lg mb-1">🗺️</div>
+                      <div>Multi-city</div>
+                      <div className="text-xs opacity-70 mt-0.5">Visit multiple stops</div>
+                    </button>
+                  </div>
+
+                  {/* Number of stops */}
+                  {trip.tripStyle === "multi" && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-amber-700 mb-2">
+                        How many stops?
+                      </label>
+                      <div className="flex gap-2">
+                        {["2", "3", "4+"].map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => updateTrip(activeTab, "stops", num)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                              trip.stops === num
+                                ? "bg-amber-400 border-amber-400 text-white"
+                                : "border-amber-200 text-amber-700 hover:border-amber-400 hover:bg-amber-50"
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* People */}
               <div>
                 <label className="block text-sm font-medium text-amber-700 mb-2">
@@ -307,36 +387,36 @@ export default function Home() {
         <div className="space-y-6">
 
           <div className="relative">
-  <label className="block text-sm font-medium text-amber-700 mb-2">
-    Where do you call home?
-  </label>
-  <input
-    type="text"
-    placeholder="e.g. Amsterdam, New York, London"
-    value={homebase}
-    onChange={(e) => {
-      setHomebase(e.target.value)
-      handleCitySearch(e.target.value)
-    }}
-    className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-  />
-  {citySuggestions.length > 0 && (
-    <div className="absolute z-10 w-full bg-white border border-amber-200 rounded-lg mt-1 shadow-lg overflow-hidden">
-      {citySuggestions.map((city, i) => (
-        <button
-          key={i}
-          onClick={() => {
-            setHomebase(city.display)
-            setCitySuggestions([])
-          }}
-          className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-amber-50 border-b border-amber-100 last:border-0"
-        >
-          {city.display}
-        </button>
-      ))}
-    </div>
-  )}
-</div>
+            <label className="block text-sm font-medium text-amber-700 mb-2">
+              Where do you call home?
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Amsterdam, New York, London"
+              value={homebase}
+              onChange={(e) => {
+                setHomebase(e.target.value)
+                handleCitySearch(e.target.value)
+              }}
+              className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            {citySuggestions.length > 0 && (
+              <div className="absolute z-10 w-full bg-white border border-amber-200 rounded-lg mt-1 shadow-lg overflow-hidden">
+                {citySuggestions.map((city, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setHomebase(city.display)
+                      setCitySuggestions([])
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-amber-50 border-b border-amber-100 last:border-0"
+                  >
+                    {city.display}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-amber-700 mb-2">
