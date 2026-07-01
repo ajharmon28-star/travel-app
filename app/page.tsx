@@ -23,6 +23,26 @@ export default function Home() {
   const [started, setStarted] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
   const [trips, setTrips] = useState<Trip[]>([])
+  const [citySuggestions, setCitySuggestions] = useState<{city: string, region: string, country: string, display: string}[]>([])
+  const [citySearchTimeout, setCitySearchTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  const handleCitySearch = (value: string) => {
+    if (citySearchTimeout) clearTimeout(citySearchTimeout)
+    if (value.length < 2) {
+      setCitySuggestions([])
+      return
+    }
+    const timeout = setTimeout(async () => {
+      const res = await fetch("/api/cities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: value })
+      })
+      const data = await res.json()
+      setCitySuggestions(data.cities || [])
+    }, 500)
+    setCitySearchTimeout(timeout)
+  }
 
   const handleStart = () => {
     if (!homebase || !tripCount || !vacationDays) return
@@ -286,18 +306,37 @@ export default function Home() {
 
         <div className="space-y-6">
 
-          <div>
-            <label className="block text-sm font-medium text-amber-700 mb-2">
-              Where do you call home?
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Amsterdam, New York, London"
-              value={homebase}
-              onChange={(e) => setHomebase(e.target.value)}
-              className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-            />
-          </div>
+          <div className="relative">
+  <label className="block text-sm font-medium text-amber-700 mb-2">
+    Where do you call home?
+  </label>
+  <input
+    type="text"
+    placeholder="e.g. Amsterdam, New York, London"
+    value={homebase}
+    onChange={(e) => {
+      setHomebase(e.target.value)
+      handleCitySearch(e.target.value)
+    }}
+    className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+  />
+  {citySuggestions.length > 0 && (
+    <div className="absolute z-10 w-full bg-white border border-amber-200 rounded-lg mt-1 shadow-lg overflow-hidden">
+      {citySuggestions.map((city, i) => (
+        <button
+          key={i}
+          onClick={() => {
+            setHomebase(city.display)
+            setCitySuggestions([])
+          }}
+          className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-amber-50 border-b border-amber-100 last:border-0"
+        >
+          {city.display}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
 
           <div>
             <label className="block text-sm font-medium text-amber-700 mb-2">
