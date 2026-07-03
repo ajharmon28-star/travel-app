@@ -32,6 +32,10 @@ export default function Home() {
   const [isMultiResult, setIsMultiResult] = useState<Record<number, boolean>>({})
   const [viewingOptions, setViewingOptions] = useState<number | null>(null)
   const [tripImages, setTripImages] = useState<Record<number, string[]>>({})
+  const [expandedItinerary, setExpandedItinerary] = useState<Record<string, any>>({})
+  const [loadingItinerary, setLoadingItinerary] = useState<string | null>(null)
+  const [showFullItinerary, setShowFullItinerary] = useState<Record<number, boolean>>({})
+  const [showItinerary, setShowItinerary] = useState<Record<number, boolean>>({})
 
   const handleCitySearch = (value: string) => {
     if (citySearchTimeout) clearTimeout(citySearchTimeout)
@@ -95,6 +99,8 @@ export default function Home() {
   const handleFindOptions = async (tripIndex: number) => {
     const trip = trips[tripIndex]
     setLoadingTrip(tripIndex)
+    setShowItinerary({ ...showItinerary, [tripIndex]: false })
+    setShowFullItinerary({ ...showFullItinerary, [tripIndex]: false })
     try {
       const res = await fetch("/api/suggest", {
         method: "POST",
@@ -127,6 +133,39 @@ export default function Home() {
     }
   }
 
+  const handleGetItinerary = async (tripIndex: number, allOptions: any[]) => {
+    if (showItinerary[tripIndex]) {
+      setShowItinerary({ ...showItinerary, [tripIndex]: false })
+      setShowFullItinerary({ ...showFullItinerary, [tripIndex]: false })
+      return
+    }
+    setLoadingItinerary(`${tripIndex}-all`)
+    try {
+      const promises = allOptions.map((opt: any) =>
+        fetch("/api/itinerary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            option: opt,
+            isMulti: isMultiResult[tripIndex],
+            trip: trips[tripIndex]
+          })
+        }).then(r => r.json()).catch(() => ({ itinerary: null }))
+      )
+      const results = await Promise.all(promises)
+      const updated = { ...expandedItinerary }
+      results.forEach((data: any, idx: number) => {
+        updated[`${tripIndex}-${idx}`] = data.itinerary || null
+      })
+      setExpandedItinerary(updated)
+      setShowItinerary({ ...showItinerary, [tripIndex]: true })
+    } catch (e) {
+      console.error("Error fetching itineraries:", e)
+    } finally {
+      setLoadingItinerary(null)
+    }
+  }
+
   const tabColors = [
     "bg-amber-300 hover:bg-amber-200",
     "bg-orange-300 hover:bg-orange-200",
@@ -143,12 +182,25 @@ export default function Home() {
         <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-12 text-center">
             <div className="text-6xl mb-6 animate-bounce">✈️</div>
-            <h2 className="text-2xl font-medium text-amber-900 mb-3">
-              Planning your trip...
-            </h2>
-            <p className="text-amber-600 mb-8">
-              Finding the best options for Trip {activeTab + 1}
-            </p>
+            <h2 className="text-2xl font-medium text-amber-900 mb-3">Planning your trip...</h2>
+            <p className="text-amber-600 mb-8">Finding the best options for Trip {activeTab + 1}</p>
+            <div className="flex justify-center gap-2">
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+            </div>
+          </div>
+        </main>
+      )
+    }
+
+    if (loadingItinerary === `${activeTab}-all`) {
+      return (
+        <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-12 text-center">
+            <div className="text-6xl mb-6 animate-bounce">🗺️</div>
+            <h2 className="text-2xl font-medium text-amber-900 mb-3">Building itineraries...</h2>
+            <p className="text-amber-600 mb-8">Creating detailed plans for all 3 options</p>
             <div className="flex justify-center gap-2">
               <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
               <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
@@ -162,6 +214,8 @@ export default function Home() {
     if (viewingOptions === activeTab && tripOptions[activeTab]) {
       const options = tripOptions[activeTab]
       const isMulti = isMultiResult[activeTab]
+      const itinerariesLoaded = showItinerary[activeTab]
+      const showFull = showFullItinerary[activeTab]
 
       return (
         <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 p-6">
@@ -183,147 +237,248 @@ export default function Home() {
             <h2 className="text-white text-xl font-medium mb-2">
               Your options for Trip {activeTab + 1}
             </h2>
-            <p className="text-amber-100 text-sm mb-6">
+            <p className="text-amber-100 text-sm mb-4">
               {trips[activeTab].startDate && trips[activeTab].endDate
                 ? `${trips[activeTab].startDate} → ${trips[activeTab].endDate}`
                 : "Flexible dates"
               } · {trips[activeTab].people} {parseInt(trips[activeTab].people) === 1 ? "person" : "people"}
             </p>
 
-            <div className="grid grid-cols-3 gap-4">
-              {options.map((option: any, i: number) => (
-                <div key={i} className="bg-white rounded-2xl border border-amber-100 p-6 flex flex-col">
-
-                  {/* Photo */}
-                  {tripImages[activeTab]?.[i] && (
-                    <div className="relative h-36 rounded-xl overflow-hidden mb-4">
-                      <img
-                        src={tripImages[activeTab][i]}
-                        alt={isMulti ? option.title : option.destination}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                        <span className="text-2xl">{option.emoji}</span>
-                        <h3 className="font-medium text-white text-base">
-                          {isMulti ? option.title : `${option.destination}, ${option.country}`}
-                        </h3>
-                      </div>
-                      <span className="absolute top-2 right-2 text-xs bg-black/30 text-white px-2 py-1 rounded-full">
-                        Option {i + 1}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Header fallback if no image */}
-                  {!tripImages[activeTab]?.[i] && (
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">{option.emoji}</span>
-                        <div>
-                          <h3 className="font-medium text-amber-900 text-lg">
-                            {isMulti ? option.title : `${option.destination}, ${option.country}`}
-                          </h3>
-                          <p className="text-sm text-amber-600">{option.summary}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 rounded-full">
-                        Option {i + 1}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Summary under photo */}
-                  {tripImages[activeTab]?.[i] && (
-                    <p className="text-sm text-amber-600 mb-4 h-10 overflow-hidden">{option.summary}</p>
-                  )}
-
-                  {/* Multi-city stops */}
-                  {isMulti && option.stops && (
-                    <div className="mb-4 space-y-2">
-                      {option.stops.map((stop: any, j: number) => (
-                        <div key={j} className="flex items-start gap-3 bg-amber-50 rounded-lg p-3">
-                          <div className="w-6 h-6 rounded-full bg-amber-400 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                            {j + 1}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-amber-900">{stop.city}, {stop.country} · {stop.nights} nights</p>
-                            <p className="text-xs text-amber-600 mt-0.5">{stop.highlights?.join(" · ")}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Single destination highlights */}
-                  {!isMulti && option.highlights && (
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      {option.highlights.map((h: string, j: number) => (
-                        <span key={j} className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-full">
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Scores */}
-                  {option.score && (
-                    <div className="grid grid-cols-4 gap-2 mb-4">
-                      {[
-                        { label: "Value", key: "value" },
-                        { label: "Adventure", key: "adventure" },
-                        { label: "Food", key: "food" },
-                        { label: "Culture", key: "culture" },
-                      ].map((s) => (
-                        <div key={s.key} className="text-center bg-amber-50 rounded-lg p-2">
-                          <div className="text-lg font-medium text-amber-900">{option.score[s.key]}</div>
-                          <div className="text-xs text-amber-600">{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Costs */}
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                    <div className="bg-amber-50 rounded-lg p-3">
-                      <p className="text-amber-600 text-xs mb-1">✈️ Flights</p>
-                      <p className="font-medium text-amber-900">{option.estimatedFlightCost}</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-3">
-                      <p className="text-amber-600 text-xs mb-1">💰 Total est.</p>
-                      <p className="font-medium text-amber-900">{option.estimatedTotalCost}</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-amber-500 mb-4">📅 Book: {option.bestTimeToBook}</p>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 mt-auto pt-4">
-                    <button className="flex-1 bg-amber-400 hover:bg-amber-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">
-                      Choose this trip ✓
-                    </button>
-                    <button
-                      onClick={() => {
-                        const updated = tripOptions[activeTab].filter((_: any, idx: number) => idx !== i)
-                        setTripOptions({ ...tripOptions, [activeTab]: updated })
-                      }}
-                      className="px-3 py-2 border border-amber-200 text-amber-600 text-sm rounded-lg hover:bg-amber-50 transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                </div>
-              ))}
+            {/* Single show itinerary button for all 3 */}
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => handleGetItinerary(activeTab, options)}
+                disabled={!!loadingItinerary}
+                className="bg-white text-amber-800 text-sm font-medium px-5 py-2 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+              >
+                {itinerariesLoaded ? "Hide itinerary ↑" : "Show itinerary ↓"}
+              </button>
+              {itinerariesLoaded && (
+                <button
+                  onClick={() => setShowFullItinerary({ ...showFullItinerary, [activeTab]: !showFull })}
+                  className="bg-white/70 text-amber-800 text-sm font-medium px-5 py-2 rounded-lg hover:bg-white transition-colors"
+                >
+                  {showFull ? "← Overview" : "Full day by day →"}
+                </button>
+              )}
+              <button
+                onClick={() => handleFindOptions(activeTab)}
+                disabled={!!loadingItinerary}
+                className="ml-auto border border-white text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50"
+              >
+                🔄 Get 3 new options
+              </button>
             </div>
 
-            <button
-              onClick={() => handleFindOptions(activeTab)}
-              disabled={loadingTrip === activeTab}
-              className="w-full mt-4 border border-white text-white text-sm font-medium py-3 rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50"
-            >
-              {loadingTrip === activeTab ? "🔄 Finding new options..." : "🔄 Get 3 new options"}
-            </button>
+            <div className="grid grid-cols-3 gap-4">
+              {options.map((option: any, i: number) => {
+                const itin = expandedItinerary[`${activeTab}-${i}`]
+                return (
+                  <div key={i} className="bg-white rounded-2xl border border-amber-100 p-6 flex flex-col">
+
+                    {/* Photo */}
+                    {tripImages[activeTab]?.[i] && (
+                      <div className="relative h-36 rounded-xl overflow-hidden mb-4">
+                        <img
+                          src={tripImages[activeTab][i]}
+                          alt={isMulti ? option.title : option.destination}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                          <span className="text-2xl">{option.emoji}</span>
+                          <h3 className="font-medium text-white text-base">
+                            {isMulti ? option.title : `${option.destination}, ${option.country}`}
+                          </h3>
+                        </div>
+                        <span className="absolute top-2 right-2 text-xs bg-black/30 text-white px-2 py-1 rounded-full">
+                          Option {i + 1}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Header fallback */}
+                    {!tripImages[activeTab]?.[i] && (
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{option.emoji}</span>
+                          <div>
+                            <h3 className="font-medium text-amber-900 text-lg">
+                              {isMulti ? option.title : `${option.destination}, ${option.country}`}
+                            </h3>
+                          </div>
+                        </div>
+                        <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 rounded-full">
+                          Option {i + 1}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    <p className="text-sm text-amber-600 mb-4 h-10 overflow-hidden">{option.summary}</p>
+
+                    {/* Multi-city stops */}
+                    {isMulti && option.stops && (
+                      <div className="mb-4 space-y-2">
+                        {option.stops.map((stop: any, j: number) => (
+                          <div key={j} className="flex items-start gap-3 bg-amber-50 rounded-lg p-3">
+                            <div className="w-6 h-6 rounded-full bg-amber-400 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                              {j + 1}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-amber-900">{stop.city}, {stop.country} · {stop.nights} nights</p>
+                              <p className="text-xs text-amber-600 mt-0.5">{stop.highlights?.join(" · ")}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Single destination highlights */}
+                    {!isMulti && option.highlights && (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {option.highlights.map((h: string, j: number) => (
+                          <span key={j} className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-full">
+                            {h}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Scores */}
+                    {option.score && (
+                      <div className="grid grid-cols-4 gap-2 mb-4">
+                        {[
+                          { label: "Value", key: "value" },
+                          { label: "Adventure", key: "adventure" },
+                          { label: "Food", key: "food" },
+                          { label: "Culture", key: "culture" },
+                        ].map((s) => (
+                          <div key={s.key} className="text-center bg-amber-50 rounded-lg p-2">
+                            <div className="text-lg font-medium text-amber-900">{option.score[s.key]}</div>
+                            <div className="text-xs text-amber-600">{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Costs */}
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                      <div className="bg-amber-50 rounded-lg p-3">
+                        <p className="text-amber-600 text-xs mb-1">✈️ Flights</p>
+                        <p className="font-medium text-amber-900">{option.estimatedFlightCost}</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-lg p-3">
+                        <p className="text-amber-600 text-xs mb-1">💰 Total est.</p>
+                        <p className="font-medium text-amber-900">{option.estimatedTotalCost}</p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-amber-500 mb-4">📅 Book: {option.bestTimeToBook}</p>
+
+                    {/* Itinerary — shown when loaded */}
+                    {itinerariesLoaded && itin && (
+                      <div className="border-t border-amber-100 pt-4 mb-4">
+
+                        {/* Arrival */}
+                        <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-medium text-blue-800 mb-1">✈️ Getting there</p>
+                          <p className="text-xs text-blue-700">{itin.arrival?.how}</p>
+                          <p className="text-xs text-blue-600 mt-1">{itin.arrival?.estimatedCost}</p>
+                          {itin.arrival?.tip && <p className="text-xs text-blue-500 mt-1 italic">💡 {itin.arrival?.tip}</p>}
+                        </div>
+
+                        {/* Overview segments */}
+                        {!showFull && (
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {itin.segments?.map((seg: any, s: number) => (
+                              <div key={s}>
+                                {seg.transfer && (
+                                  <div className="bg-orange-50 rounded-lg p-2 mb-2 text-xs text-orange-700 flex items-center gap-2">
+                                    <span>🚌</span>
+                                    <span>{seg.transfer.how} · {seg.transfer.duration} · {seg.transfer.estimatedCost}</span>
+                                  </div>
+                                )}
+                                <div className="bg-amber-50 rounded-lg p-3">
+                                  <p className="text-xs font-medium text-amber-900 mb-1">{seg.days} — {seg.location}</p>
+                                  <p className="text-xs text-amber-600 mb-2">🏨 {seg.accommodation}</p>
+                                  <ul className="space-y-1">
+                                    {seg.highlights?.map((h: string, hi: number) => (
+                                      <li key={hi} className="text-xs text-amber-700">• {h}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Full day by day */}
+                        {showFull && (
+                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {itin.dailyDetail?.map((day: any, d: number) => (
+                              <div key={d} className="bg-amber-50 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="w-5 h-5 rounded-full bg-amber-400 text-white text-xs flex items-center justify-center flex-shrink-0">
+                                    {day.day}
+                                  </span>
+                                  <div>
+                                    <p className="text-xs font-medium text-amber-900">{day.title}</p>
+                                    <p className="text-xs text-amber-500">{day.location}</p>
+                                  </div>
+                                </div>
+                                <ul className="space-y-1 ml-7">
+                                  {day.activities?.map((a: string, ai: number) => (
+                                    <li key={ai} className="text-xs text-amber-700">• {a}</li>
+                                  ))}
+                                </ul>
+                                {day.accommodation && (
+                                  <p className="text-xs text-amber-500 mt-1 ml-7">🏨 {day.accommodation}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Departure */}
+                        <div className="bg-blue-50 rounded-lg p-3 mt-3">
+                          <p className="text-xs font-medium text-blue-800 mb-1">✈️ Getting home</p>
+                          <p className="text-xs text-blue-700">{itin.departure?.how}</p>
+                          {itin.departure?.tip && <p className="text-xs text-blue-500 mt-1 italic">💡 {itin.departure?.tip}</p>}
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* No itinerary fallback */}
+                    {itinerariesLoaded && !itin && (
+                      <div className="border-t border-amber-100 pt-4 mb-4">
+                        <p className="text-xs text-amber-500 text-center py-4">
+                          Could not load itinerary for this option.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2 mt-auto pt-2">
+                      <button className="flex-1 bg-amber-400 hover:bg-amber-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">
+                        Choose this trip ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = tripOptions[activeTab].filter((_: any, idx: number) => idx !== i)
+                          setTripOptions({ ...tripOptions, [activeTab]: updated })
+                        }}
+                        className="px-3 py-2 border border-amber-200 text-amber-600 text-sm rounded-lg hover:bg-amber-50 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                  </div>
+                )
+              })}
+            </div>
 
           </div>
         </main>
@@ -351,7 +506,6 @@ export default function Home() {
             {tripCount} trips · {vacationDays} vacation days · from {homebase}
           </p>
 
-          {/* Trip tabs */}
           <div className="flex gap-2 mb-0">
             {trips.map((t, i) => (
               <button
@@ -369,7 +523,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Trip form */}
           <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-sm border border-amber-100 p-6">
 
             <h2 className="text-lg font-medium text-amber-900 mb-6">
@@ -378,12 +531,9 @@ export default function Home() {
 
             <div className="space-y-5">
 
-              {/* Travel from */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-amber-700">
-                    Traveling from
-                  </label>
+                  <label className="text-sm font-medium text-amber-700">Traveling from</label>
                   <label className="flex items-center gap-2 text-sm text-amber-600 cursor-pointer">
                     <input
                       type="checkbox"
@@ -407,11 +557,8 @@ export default function Home() {
                 />
               </div>
 
-              {/* Destination */}
               <div>
-                <label className="block text-sm font-medium text-amber-700 mb-2">
-                  Where are you thinking?
-                </label>
+                <label className="block text-sm font-medium text-amber-700 mb-2">Where are you thinking?</label>
                 <input
                   type="text"
                   placeholder="e.g. Tuscany, Japan, Southeast Asia..."
@@ -421,11 +568,8 @@ export default function Home() {
                 />
               </div>
 
-              {/* Trip type tags */}
               <div>
-                <label className="block text-sm font-medium text-amber-700 mb-2">
-                  What kind of trip?
-                </label>
+                <label className="block text-sm font-medium text-amber-700 mb-2">What kind of trip?</label>
                 <div className="flex flex-wrap gap-2">
                   {tripTypes.map((tag) => (
                     <span
@@ -443,12 +587,9 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-amber-700 mb-2">
-                    Start date
-                  </label>
+                  <label className="block text-sm font-medium text-amber-700 mb-2">Start date</label>
                   <input
                     type="date"
                     value={trip.startDate}
@@ -457,9 +598,7 @@ export default function Home() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-amber-700 mb-2">
-                    End date
-                  </label>
+                  <label className="block text-sm font-medium text-amber-700 mb-2">End date</label>
                   <input
                     type="date"
                     value={trip.endDate}
@@ -469,7 +608,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Trip duration summary */}
               {trip.startDate && trip.endDate && (
                 <div className="bg-amber-50 rounded-lg px-4 py-3 text-sm text-amber-700">
                   {getTripDuration(trip.startDate, trip.endDate) <= 0
@@ -479,7 +617,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Multi-city option */}
               {getTripDuration(trip.startDate, trip.endDate) >= 4 && (
                 <div>
                   <label className="block text-sm font-medium text-amber-700 mb-2">
@@ -514,9 +651,7 @@ export default function Home() {
 
                   {trip.tripStyle === "multi" && (
                     <div className="mt-3">
-                      <label className="block text-sm font-medium text-amber-700 mb-2">
-                        How many stops?
-                      </label>
+                      <label className="block text-sm font-medium text-amber-700 mb-2">How many stops?</label>
                       <div className="flex gap-2">
                         {["2", "3", "4+"].map((num) => (
                           <button
@@ -537,11 +672,8 @@ export default function Home() {
                 </div>
               )}
 
-              {/* People */}
               <div>
-                <label className="block text-sm font-medium text-amber-700 mb-2">
-                  How many people?
-                </label>
+                <label className="block text-sm font-medium text-amber-700 mb-2">How many people?</label>
                 <div className="flex gap-2">
                   {["1", "2", "3", "4", "5+"].map((num) => (
                     <button
@@ -559,11 +691,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Transport */}
               <div>
-                <label className="block text-sm font-medium text-amber-700 mb-2">
-                  How do you want to get there?
-                </label>
+                <label className="block text-sm font-medium text-amber-700 mb-2">How do you want to get there?</label>
                 <div className="flex gap-2">
                   {[
                     { value: "any", label: "Any" },
@@ -612,19 +741,13 @@ export default function Home() {
           <span className="text-xl font-medium text-amber-800">Travel App</span>
         </div>
 
-        <h1 className="text-2xl font-medium text-amber-900 mb-2">
-          Plan your perfect year
-        </h1>
-        <p className="text-amber-700 mb-8">
-          Tell us about yourself and we'll build your ideal travel calendar.
-        </p>
+        <h1 className="text-2xl font-medium text-amber-900 mb-2">Plan your perfect year</h1>
+        <p className="text-amber-700 mb-8">Tell us about yourself and we'll build your ideal travel calendar.</p>
 
         <div className="space-y-6">
 
           <div className="relative">
-            <label className="block text-sm font-medium text-amber-700 mb-2">
-              Where do you call home?
-            </label>
+            <label className="block text-sm font-medium text-amber-700 mb-2">Where do you call home?</label>
             <input
               type="text"
               placeholder="e.g. Amsterdam, New York, London"
@@ -654,9 +777,7 @@ export default function Home() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-amber-700 mb-2">
-              How many trips do you want to take this year?
-            </label>
+            <label className="block text-sm font-medium text-amber-700 mb-2">How many trips do you want to take this year?</label>
             <div className="flex gap-3">
               {["1", "2", "3", "4", "5+"].map((num) => (
                 <button
@@ -675,9 +796,7 @@ export default function Home() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-amber-700 mb-2">
-              How many vacation days do you have?
-            </label>
+            <label className="block text-sm font-medium text-amber-700 mb-2">How many vacation days do you have?</label>
             <input
               type="number"
               placeholder="e.g. 20"
