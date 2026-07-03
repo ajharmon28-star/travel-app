@@ -179,7 +179,7 @@ export default function Home() {
 
     if (loadingTrip === activeTab) {
       return (
-        <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
+        <main className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-700 flex items-center justify-center p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-12 text-center">
             <div className="text-6xl mb-6 animate-bounce">✈️</div>
             <h2 className="text-2xl font-medium text-amber-900 mb-3">Planning your trip...</h2>
@@ -196,7 +196,7 @@ export default function Home() {
 
     if (loadingItinerary === `${activeTab}-all`) {
       return (
-        <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
+        <main className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-700 flex items-center justify-center p-6">
           <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-12 text-center">
             <div className="text-6xl mb-6 animate-bounce">🗺️</div>
             <h2 className="text-2xl font-medium text-amber-900 mb-3">Building itineraries...</h2>
@@ -218,7 +218,7 @@ export default function Home() {
       const showFull = showFullItinerary[activeTab]
 
       return (
-        <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 p-6">
+        <main className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-700 p-6">
           <div className="max-w-6xl mx-auto">
 
             <div className="flex items-center gap-3 mb-6">
@@ -486,7 +486,7 @@ export default function Home() {
     }
 
     return (
-      <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 p-6">
+      <main className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-700 p-6">
         <div className="max-w-2xl mx-auto">
 
           <div className="flex items-center gap-3 mb-6">
@@ -731,7 +731,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-600 flex items-center justify-center p-6">
+    <main className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-700 flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-sm border border-amber-100 w-full max-w-md p-8">
 
         <div className="flex items-center gap-3 mb-8">
