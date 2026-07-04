@@ -1,5 +1,6 @@
 "use client"
 
+import DateRangePicker from "./components/DateRangePicker"
 import { useState } from "react"
 
 const tripTypes = ["Beach", "City breaks", "Adventure", "Resort", "Culture", "Road trips", "Nature", "Sports & Activities", "Surprise me!"]
@@ -76,6 +77,7 @@ export default function Home() {
   }
 
   const updateTrip = (index: number, field: keyof Trip, value: string | boolean | string[]) => {
+    console.log("updateTrip called:", index, field, value)
     const updated = [...trips]
     updated[index] = { ...updated[index], [field]: value }
     setTrips(updated)
@@ -587,25 +589,21 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-amber-700 mb-2">Start date</label>
-                  <input
-                    type="date"
-                    value={trip.startDate}
-                    onChange={(e) => updateTrip(activeTab, "startDate", e.target.value)}
-                    className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-amber-700 mb-2">End date</label>
-                  <input
-                    type="date"
-                    value={trip.endDate}
-                    onChange={(e) => updateTrip(activeTab, "endDate", e.target.value)}
-                    className="w-full border border-amber-200 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  />
-                </div>
+              {/* Dates */}
+              <div>
+                <label className="block text-sm font-medium text-amber-700 mb-2">
+                  When are you going?
+                </label>
+                <DateRangePicker
+                  startDate={trip.startDate}
+                  endDate={trip.endDate}
+                  onStartChange={(date) => {
+                    console.log("start date set:", date)
+                    updateTrip(activeTab, "startDate", date)
+                  }}
+
+                  onEndChange={(date) => updateTrip(activeTab, "endDate", date)}
+                />
               </div>
 
               {trip.startDate && trip.endDate && (
